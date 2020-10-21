@@ -1,0 +1,187 @@
+heat_template_version: 2016-10-14
+
+description: >
+  Automating through Heat. 
+
+parameters:
+  flavor:
+    type: string
+    description: You can override defaults with environment file
+    constraints:
+      - custom_constraint: nova.flavor
+      
+  image:
+    type: string
+    description: Using Cirros image for testing
+    constraints:
+      - custom_constraint: glance.image
+      
+  volume-size:
+    type: number
+    label: Volume Size in GB
+    description: External Volume Size in GB
+      
+  instance_name:
+    type: string
+    description: Name of the Instance
+    
+  instance_count:
+    type: number
+    description: Nuber of VMs / Instance to be created
+    
+  network-ext:
+    type: string
+    description: For selecting/choosing existing external network
+
+#  network-ext-name:
+#    type: string
+#    description: For creating external network
+    
+#  network-ext-subnet:
+#    type: string
+#    description: External Network's subnet name
+    
+#  ext-subnet-cidr:
+#    type: string
+#    description: External Subnet cidr
+
+  network-int:
+    type: string
+    description: For creating internal network
+    
+  network-int-subnet:
+    type: string
+    description: Internal Network's subnet name
+    
+  int-subnet-cidr:
+    type: string
+    description: Internal Subnet cidr
+    
+  nameserver_ip1:
+    type: string
+    description: IP of DNS nameserver1
+    
+  nameserver_ip2:
+    type: string
+    description: IP of DNS nameserver2
+    
+  router-name:
+    type: string
+    description: Name of the Router
+    
+  sg-name:
+    type: string
+    description: Name of the Security Group
+    
+  remote-ip:
+    type: string
+    description: Remote IP prefix to associate with the Security Group rule
+    
+  keyname:
+    type: string
+    description: Remote IP prefix to associate with the Security Group rule
+    
+
+resources:
+#  external_net:
+#    type: OS::Neutron::Net
+#    properties:
+#      name: { get_param: network-ext-name }
+
+#  external_subnet:
+#    type: OS::Neutron::Subnet
+#    properties:
+#      name: { get_param: network-ext-subnet }
+#      network_id: { get_resource: external_net }
+#      cidr: { get_param: ext-subnet-cidr }
+#      dns_nameservers: [ { get_param: nameserver_ip1 }, { get_param: nameserver_ip2 } ]
+#      ip_version: 4
+
+  internal_net:
+    type: OS::Neutron::Net
+    properties:
+      name: { get_param: network-int }
+
+  internal_subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      name: { get_param: network-int-subnet }
+      network_id: { get_resource: internal_net }
+      cidr: { get_param: int-subnet-cidr }
+      dns_nameservers: [ { get_param: nameserver_ip1 }, { get_param: nameserver_ip2 } ]
+      ip_version: 4
+      
+  internal_router:
+    type: OS::Neutron::Router
+    properties:
+      name: { get_param: router-name }
+      external_gateway_info: { network: { get_param: network-ext } }
+
+  internal_interface:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router_id: { get_resource: internal_router }
+      subnet: { get_resource: internal_subnet }
+      
+  security_group:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      name: { get_param: sg-name }
+      description: >
+        Security group rule to create
+        Allows connection from remote IP (icmp, tcp22, 80, 443, 3389, 1688, 53, and udp 53)
+      rules:
+         #1 ingress: ICMP/RemoteIP
+         - { remote_ip_prefix: { get_param: remote-ip }, direction: ingress, protocol: icmp }
+         #2 ingress: TCP/SSH/22/RemoteIP
+         - { remote_ip_prefix: { get_param: remote-ip }, direction: ingress, protocol: tcp, port_range_min: 22, port_range_max: 22}
+         #3 ingress: TCP/HTTP/80/RemoteIP
+         - { remote_ip_prefix: { get_param: remote-ip }, direction: ingress, protocol: tcp, port_range_min: 80, port_range_max: 80}
+         #4 ingress: TCP/HTTPS/443/RemoteIP
+         - { remote_ip_prefix: { get_param: remote-ip }, direction: ingress, protocol: tcp, port_range_min: 443, port_range_max: 443}
+         #5 ingress: TCP/RDP/3389/RemoteIP
+         - { remote_ip_prefix: { get_param: remote-ip }, direction: ingress, protocol: tcp, port_range_min: 3389, port_range_max: 3389}
+         #6 ingress: TCP/KMS/1688/RemoteIP
+         - { remote_ip_prefix: { get_param: remote-ip }, direction: ingress, protocol: tcp, port_range_min: 1688, port_range_max: 1688}
+         #7 ingress: TCP/DNS/53/RemoteIP
+         - { remote_ip_prefix: { get_param: remote-ip }, direction: ingress, protocol: tcp, port_range_min: 53, port_range_max: 53}
+         #8 ingress: UDP/DNS/53/RemoteIP
+         - { remote_ip_prefix: { get_param: remote-ip }, direction: ingress, protocol: udp, port_range_min: 53, port_range_max: 53}
+         
+#  instance_port:
+#    type: OS::Neutron::Port
+#    properties:
+#      network: { get_resource: internal_net }
+#      security_groups:
+#        - default
+#        - { get_resource: security_group }
+#      fixed_ips:
+#        - subnet_id: { get_resource: internal_subnet }
+        
+  instance_key:
+    type: OS::Nova::KeyPair
+    properties:
+      save_private_key: true
+      name: { get_param: keyname }
+
+  Group_of_VMs:
+    type: OS::Heat::ResourceGroup
+    properties:
+      count: { get_param: instance_count }
+      resource_def:
+        type: OS::Nova::Server
+        properties:
+          name:
+            str_replace:
+              template: $instance_name-%index%
+              params:
+                $instance_name: { get_param: instance_name }
+          flavor: { get_param: flavor }
+          image: { get_param: image }
+          key_name: { get_resource: instance_key }
+          networks:
+            -  network: { get_resource: internal_net }
+            #- port: { get_resource: instance_port }
+          security_groups:
+            - default
+            - { get_resource: security_group }

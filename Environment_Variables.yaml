@@ -1,0 +1,20 @@
+parameters:
+  flavor: m1.tiny
+  image: cirros
+  volume-size: 2
+  instance_name: Test
+  instance_count: 2
+  network-ext: external
+#  network-ext-name: external_net_test
+#  network-ext-subnet: external_subnet_test
+#  ext-subnet-cidr: 192.10.10.0/24
+  network-int: internal_net_test
+  network-int-subnet: internal_subnet_test
+  int-subnet-cidr: 172.10.10.0/24
+  nameserver_ip1: 8.8.8.8
+  nameserver_ip2: 8.8.4.4
+  router-name: test_router
+  sg-name: test_SG
+  remote-ip: 0.0.0.0/0    
+  keyname: my_key_Environment
+
