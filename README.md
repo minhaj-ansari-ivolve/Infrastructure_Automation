@@ -25,4 +25,5 @@ Heat Orchestration Template is used for creating Infrastructure/Stack on Opensta
 ```
 openstack stack create -t Automation_Template.yaml -e Environment_Variables.yaml TEST-STACK --wait
 openstack stack update -t Automation_Template.yaml -e Environment_Variables.yaml TEST-STACK --wait
+openstack stack delete TEST-STACK --wait
 ```
